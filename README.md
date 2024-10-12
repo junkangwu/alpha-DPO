@@ -53,4 +53,4 @@ ACCELERATE_LOG_LEVEL=info accelerate launch --config_file accelerate_configs/dee
 ```
 
 ## Acknowledgement
-The project is built upon [SimPO](https://github.com/princeton-nlp/SimPO)
+The project is built upon [SimPO](https://github.com/princeton-nlp/SimPO).
