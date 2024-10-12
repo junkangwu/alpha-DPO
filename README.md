@@ -1,6 +1,6 @@
 # $\alpha$-DPO
 
-This repository contains the code for the paper submitted to the ICLR-2025 conference titled "$\alpha$-DPO: Adaptive Reward Margin is What Direct Preference Optimization Needs".
+This repository contains the code for the paper titled "$\alpha$-DPO: Adaptive Reward Margin is What Direct Preference Optimization Needs".
 
 <img src="./alpha-DPO.png" width="1000px"></img>
 
