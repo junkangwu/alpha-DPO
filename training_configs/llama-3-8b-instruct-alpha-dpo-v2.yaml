@@ -1,9 +1,10 @@
 # Model arguments
-model_name_or_path: meta-llama/Meta-Llama-3-8B-Instruct
+model_name_or_path: /home/mlp/alpha-DPO/Meta-Llama-3-8B-Instruct
 torch_dtype: null
 attn_implementation: flash_attention_2
 
 # Data training arguments
+# v2 uses ArmoRM for preference annotation
 dataset_mixer:
   princeton-nlp/llama3-ultrafeedback-armorm: 1.0
 dataset_splits:
@@ -17,8 +18,8 @@ beta: 10
 gamma_beta_ratio: 0.4
 alpha: 0.2
 ln: true
-trainer_type: dpo
-loss_type: alpha-dpo
+trainer_type: alpha_dpo
+loss_type: alpha_dpo
 do_eval: true
 evaluation_strategy: steps
 eval_steps: 400

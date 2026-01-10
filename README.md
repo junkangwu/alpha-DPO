@@ -1,56 +1,61 @@
-# $\alpha$-DPO
+# α-DPO: Adaptive Reward Margin Direct Preference Optimization
 
-This repository contains the code for the paper titled "$\alpha$-DPO: Adaptive Reward Margin is What Direct Preference Optimization Needs".
+This repository contains the implementation of α-DPO (alpha-DPO) based on the latest [SimPO](https://github.com/princeton-nlp/SimPO) codebase.
 
-<img src="./alpha-DPO.png" width="1000px"></img>
+> **Note**: This implementation is updated from the original [α-DPO repository](https://github.com/xxx/alpha-DPO) to be compatible with newer versions of `transformers`, `trl`, and other dependencies.
 
-## Install Requirements
+## Key Changes
 
-Our codebase is built upon the [alignment-handbook repo](https://github.com/huggingface/alignment-handbook). The following steps will guide you through the installation process.
+The original α-DPO code was built on an older version of SimPO. Due to version incompatibilities with newer packages (especially `transformers>=4.44` and `trl>=0.9`), we re-implemented α-DPO on the latest SimPO codebase.
 
-First, create a Python virtual environment using e.g. Conda:
-```shell
-conda create -n handbook python=3.10 && conda activate handbook
+**Main modifications:**
+- `scripts/alpha_dpo_trainer.py` - α-DPO trainer with adaptive reward margin
+- `scripts/run_alpha_dpo.py` - Unified training script supporting both SimPO and α-DPO
+- `scripts/simpo_config.py` - Extended config with α-DPO parameters (`alpha`, `ln`, `trainer_type`)
+- `training_configs/*-alpha-dpo*.yaml` - Training configurations for different models
+
+## Installation
+
+```bash
+conda create -n alpha-dpo python=3.10 && conda activate alpha-dpo
+pip install torch==2.3.0 --index-url https://download.pytorch.org/whl/cu121
+pip install -r requirements.txt
+pip install flash-attn --no-build-isolation
 ```
 
-Next, install PyTorch `v2.2.2`. Since this is hardware-dependent, we
-direct you to the [PyTorch Installation Page](https://pytorch.org/get-started/locally/).
+## Training
 
-You can then install the remaining package dependencies of [alignment-handbook](https://github.com/huggingface/alignment-handbook) as follows:
+```bash
+# Llama-3-8B-Instruct
+CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info accelerate launch \
+    --config_file accelerate_configs/deepspeed_zero3.yaml \
+    scripts/run_alpha_dpo.py training_configs/llama-3-8b-instruct-alpha-dpo.yaml
 
-```shell
-git clone https://github.com/huggingface/alignment-handbook.git
-cd ./alignment-handbook/
-python -m pip install .
+# Llama-3-8B-Instruct v0.2 (ArmoRM annotated)
+CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info accelerate launch \
+    --config_file accelerate_configs/deepspeed_zero3.yaml \
+    scripts/run_alpha_dpo.py training_configs/llama-3-8b-instruct-alpha-dpo-v2.yaml
+
+# Mistral-7B-Instruct
+CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info accelerate launch \
+    --config_file accelerate_configs/deepspeed_zero3.yaml \
+    scripts/run_alpha_dpo.py training_configs/mistral-7b-instruct-alpha-dpo.yaml
+
+# Gemma-2-9B-IT
+CUDA_VISIBLE_DEVICES=0,1,2,3 ACCELERATE_LOG_LEVEL=info accelerate launch \
+    --config_file accelerate_configs/deepspeed_zero3.yaml \
+    scripts/run_alpha_dpo.py training_configs/gemma-2-9b-it-alpha-dpo.yaml
 ```
 
-You will also need Flash Attention 2 installed, which can be done by running:
+## Hyperparameters
 
-```shell
-python -m pip install flash-attn --no-build-isolation
-```
-
-## Training Scripts
-
-We provide four training config files for the four training setups reported in our paper. The training config is set for 4xH100 GPUs. You may need to adjust `num_processes` and `per_device_train_batch_size` based on your computation environment. 
-
-
-* Mistral-Instruct:
-```shell
-ACCELERATE_LOG_LEVEL=info accelerate launch --config_file accelerate_configs/deepspeed_zero3.yaml scripts/run_alpha_dpo.py training_configs/mistral-7b-instruct-alpha-dpo.yaml
-```
-* Llama3-Instruct:
-```shell
-ACCELERATE_LOG_LEVEL=info accelerate launch --config_file accelerate_configs/deepspeed_zero3.yaml scripts/run_alpha_dpo.py training_configs/llama-3-8b-instruct-alpha-dpo.yaml
-```
-* Llama3-Instruct v0.2:
-```shell
-ACCELERATE_LOG_LEVEL=info accelerate launch --config_file accelerate_configs/deepspeed_zero3.yaml scripts/run_alpha_dpo.py training_configs/llama-3-8b-instruct-alpha-dpo-v2.yaml
-```
-* Gemma2-Instruct:
-```shell
-ACCELERATE_LOG_LEVEL=info accelerate launch --config_file accelerate_configs/deepspeed_zero3.yaml scripts/run_alpha_dpo.py training_configs/gemma-2-9b-it-alpha-dpo.yaml
-```
+| Model | β | γ/β | α | lr |
+|-------|---|-----|---|-----|
+| Llama-3-8B-Instruct | 2.5 | 0.6 | 0.2 | 1e-6 |
+| Llama-3-8B-Instruct v0.2 | 10 | 0.4 | 0.2 | 1e-6 |
+| Mistral-7B-Instruct | 2.5 | 0.15 | 0.05 | 6e-7 |
+| Gemma-2-9B-IT | 10 | 0.4 | 0.05 | 8e-7 |
 
 ## Acknowledgement
-The project is built upon [SimPO](https://github.com/princeton-nlp/SimPO).
+
+- [SimPO](https://github.com/princeton-nlp/SimPO)

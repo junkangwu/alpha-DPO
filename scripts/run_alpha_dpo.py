@@ -13,6 +13,16 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+"""
+Alpha-DPO Training Script
+
+This script runs alpha-DPO training with adaptive reward margin.
+It supports both SimPO (without reference model) and alpha-DPO (with reference model).
+
+Usage:
+    ACCELERATE_LOG_LEVEL=info accelerate launch --config_file accelerate_configs/deepspeed_zero3.yaml \
+        scripts/run_alpha_dpo.py training_configs/llama-3-8b-instruct-alpha-dpo.yaml
+"""
 import logging
 import random
 import sys
@@ -37,7 +47,7 @@ from alignment import (
 from alignment.data import maybe_insert_system_message, is_openai_format
 from peft import PeftConfig, PeftModel
 from simpo_trainer import SimPOTrainer
-from dpo_trainer import AlphaDPOTrainer
+from alpha_dpo_trainer import AlphaDPOTrainer
 from simpo_config import SimPOConfig
 from dataclasses import dataclass, field
 from typing import Optional, Literal
@@ -46,13 +56,15 @@ logger = logging.getLogger(__name__)
 
 MISTRAL_CHAT_TEMPLATE = "{% if messages[0]['role'] == 'system' %}{% set loop_messages = messages[1:] %}{% set system_message = messages[0]['content'].strip() + '\n\n' %}{% else %}{% set loop_messages = messages %}{% set system_message = '' %}{% endif %}{% for message in loop_messages %}{% if loop.index0 == 0 %}{% set content = system_message + message['content'] %}{% else %}{% set content = message['content'] %}{% endif %}{% if message['role'] == 'user' %}{{ '[INST] ' + content.strip() + ' [/INST]' }}{% elif message['role'] == 'assistant' %}{{ ' '  + content.strip() + ' ' + eos_token }}{% endif %}{% endfor %}"
 
+
 def apply_chat_template(
     example,
     tokenizer,
     task: Literal["sft", "generation", "rm", "simpo"],
     auto_insert_empty_system_msg: bool = True,
-    change_template = None,
+    change_template=None,
 ):
+    """Apply chat template to format the examples for training."""
     if change_template == "mistral":
         tokenizer.chat_template = MISTRAL_CHAT_TEMPLATE
     if task in ["sft", "generation"]:
@@ -144,6 +156,9 @@ def main():
     logger.info(f"Model parameters {model_args}")
     logger.info(f"Data parameters {data_args}")
     logger.info(f"Training/evaluation parameters {training_args}")
+    logger.info(f"Trainer type: {training_args.trainer_type}")
+    if training_args.trainer_type == "alpha_dpo":
+        logger.info(f"Alpha-DPO parameters: alpha={training_args.alpha}, ln={training_args.ln}")
 
     # Check for last checkpoint
     last_checkpoint = get_checkpoint(training_args)
@@ -161,7 +176,6 @@ def main():
         splits=data_args.dataset_splits,
         configs=data_args.dataset_configs,
         columns_to_keep=["messages", "chosen", "rejected", "prompt", "completion", "label"],
-        # seed=training_args.seed,
     )
     logger.info(
         f"Training on the following splits: {[split + ' : ' + str(dset.num_rows) for split, dset in raw_datasets.items()]}"
@@ -178,6 +192,7 @@ def main():
         change_template = "mistral"
     else:
         change_template = None
+    
     #####################
     # Apply chat template
     #####################
@@ -218,16 +233,18 @@ def main():
         use_cache=False if training_args.gradient_checkpointing else True,
         device_map=get_kbit_device_map() if quantization_config is not None else None,
         quantization_config=quantization_config,
-        attn_implementation=training_args.attn_implementation,
+        attn_implementation=model_args.attn_implementation,
     )
 
     model = model_args.model_name_or_path
 
     training_args.model_init_kwargs = model_kwargs
+    
     #########################
-    # Instantiate SimPO or DPO trainer
+    # Instantiate trainer
     #########################
     if training_args.trainer_type == "simpo":
+        logger.info("Using SimPO trainer (no reference model)")
         trainer = SimPOTrainer(
             model=model,
             args=training_args,
@@ -236,23 +253,22 @@ def main():
             tokenizer=tokenizer,
             peft_config=get_peft_config(model_args),
         )
-    else:
-        ref_model = model
-        ref_model_kwargs = model_kwargs
+    elif training_args.trainer_type == "alpha_dpo":
+        logger.info("Using Alpha-DPO trainer (with reference model)")
+        # For alpha-DPO, we need to pass the reference model
+        # The reference model is the same as the initial model
+        ref_model = model_args.model_name_or_path
         trainer = AlphaDPOTrainer(
             model=model,
-            ref_model=ref_model, # pass in to bypass DPO Trainer check for ref model but is not actually used
-            model_init_kwargs=model_kwargs,
+            ref_model=ref_model,
             args=training_args,
-            beta=training_args.beta,
             train_dataset=raw_datasets["train"],
             eval_dataset=raw_datasets["test"],
             tokenizer=tokenizer,
-            max_length=training_args.max_length,
-            max_prompt_length=training_args.max_prompt_length,
             peft_config=get_peft_config(model_args),
-            loss_type=training_args.loss_type,
         )
+    else:
+        raise ValueError(f"Unknown trainer_type: {training_args.trainer_type}. Should be 'simpo' or 'alpha_dpo'.")
 
     ###############
     # Training loop
@@ -283,7 +299,7 @@ def main():
         "finetuned_from": model_args.model_name_or_path,
         "dataset": list(data_args.dataset_mixer.keys()),
         "dataset_tags": list(data_args.dataset_mixer.keys()),
-        "tags": ["alignment-handbook"],
+        "tags": ["alignment-handbook", "alpha-dpo" if training_args.trainer_type == "alpha_dpo" else "simpo"],
     }
     if trainer.accelerator.is_main_process:
         trainer.create_model_card(**kwargs)

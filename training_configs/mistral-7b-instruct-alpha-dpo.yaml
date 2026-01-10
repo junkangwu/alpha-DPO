@@ -17,8 +17,8 @@ beta: 2.5
 gamma_beta_ratio: 0.15
 alpha: 5e-2
 ln: true
-trainer_type: dpo
-loss_type: alpha-dpo
+trainer_type: alpha_dpo
+loss_type: alpha_dpo
 do_eval: true
 evaluation_strategy: steps
 eval_steps: 400

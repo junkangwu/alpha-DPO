@@ -7,6 +7,7 @@ from transformers import TrainingArguments
 class SimPOConfig(TrainingArguments):
     r"""
     SimPOConfig collects all training arguments related to the [`SimPOTrainer`] class.
+    Extended to support alpha-DPO training with adaptive reward margin.
 
     Using [`HfArgumentParser`] we can turn this class into
     [argparse](https://docs.python.org/3/library/argparse#module-argparse) arguments that can be specified on the
@@ -45,6 +46,12 @@ class SimPOConfig(TrainingArguments):
             Dict of Optional kwargs to pass when instantiating the model from a string
         dataset_num_proc (`Optional[int]`, *optional*):
             The number of workers to use to tokenize the data. Defaults to None.
+        trainer_type (`str`, defaults to `simpo`):
+            The type of trainer to use. Either `simpo` for SimPO or `alpha_dpo` for alpha-DPO.
+        alpha (`float`, defaults to 0.0):
+            The alpha factor for adaptive reward margin in alpha-DPO loss.
+        ln (`bool`, defaults to `True`):
+            Whether to use length normalization for log probabilities.
     """
     
     max_length: Optional[int] = None
@@ -56,7 +63,7 @@ class SimPOConfig(TrainingArguments):
     gamma_beta_ratio: float = 0.25
     sft_weight: float = 0.0
     label_smoothing: float = 0
-    loss_type: Literal["sigmoid", "hinge"] = "sigmoid"
+    loss_type: Literal["sigmoid", "hinge", "alpha_dpo"] = "sigmoid"
     disable_dropout: bool = True
 
     label_pad_token_id: int = -100
@@ -69,8 +76,7 @@ class SimPOConfig(TrainingArguments):
 
     dataset_num_proc: Optional[int] = None
 
-    attn_implementation: str = None
-
-    trainer_type: str = "dpo"
-    ln: bool = True
-    alpha: float=0.0
+    # alpha-DPO specific arguments
+    trainer_type: str = "simpo"  # "simpo" or "alpha_dpo"
+    alpha: float = 0.0  # adaptive reward margin scaling factor
+    ln: bool = True  # length normalization
