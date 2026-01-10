@@ -2,7 +2,7 @@
 
 This repository contains the implementation of α-DPO (alpha-DPO) based on the latest [SimPO](https://github.com/princeton-nlp/SimPO) codebase.
 
-> **Note**: This implementation is updated from the original [α-DPO repository](https://github.com/xxx/alpha-DPO) to be compatible with newer versions of `transformers`, `trl`, and other dependencies.
+> **Note**: This implementation is updated from the original [α-DPO repository](https://github.com/junkangwu/alpha-DPO/tree/fab32091cd1e36a275ad0b08adb09920c01cd65f) to be compatible with newer versions of `transformers`, `trl`, and other dependencies.
 
 ## Key Changes
 
